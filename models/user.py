@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, Date, String
-from sqlalchemy.orm import relationship
 from datetime import datetime
 from .base import Base
 

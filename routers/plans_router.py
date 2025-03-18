@@ -1,23 +1,21 @@
 import pandas as pd
+from typing import List
 from fastapi import APIRouter, UploadFile, File, HTTPException, status
-from pydantic import BaseModel
-from data_base.local_db import get_session
 from io import BytesIO
-from sqlalchemy.orm import joinedload
-from datetime import datetime
-from data_base.plan import Plan
-from data_base.dictionary import Dictionary
+from sqlalchemy import tuple_
+from schemas.schema_plan import PlanInsertResponse
+
+from db.local_db import get_session
+from models.plan import Plan
+from models.dictionary import Dictionary
 
 router = APIRouter()
 
 
-class PlanInsertResponse(BaseModel):
-    message: str
-
-
-def convert_data(str):
-    date_object = datetime.strptime(str, "%Y-%m-%d").date()
-    return date_object
+def return_id_in_colum(col: str, dic: List[Dictionary]) -> int:
+    res = list(filter(lambda y: y if col.lower() == y.name else None, dic))
+    if res:
+        return res[0].id
 
 
 @router.post("/plans_insert", response_model=PlanInsertResponse)
@@ -29,42 +27,49 @@ async def plans_insert(file: UploadFile = File(...)):
         )
 
     content = await file.read()
-    df = pd.read_excel(BytesIO(content))
     session = next(get_session())
-    db_plan = session.query(Plan).options(joinedload(Plan.category)).all()
+
+    df = pd.read_excel(BytesIO(content))
     dictionary_ = session.query(Dictionary).all()
+    df['category_id'] = df['Назва категорії плану'].apply(lambda x: return_id_in_colum(x, dictionary_), )
+    df['Місяць плану'] = pd.to_datetime(df['Місяць плану'])
+
+    df_lst_data = list(zip(df['Місяць плану'], df['category_id']))
+
+    db_plan = (session.query(Plan).filter(tuple_(Plan.period, Plan.category_id).in_(df_lst_data))
+               .with_entities(Plan.period, Plan.category_id).all())
+    if db_plan:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'We had plan(s) with such category and date'
+        )
+
+    non_first_days = df['Місяць плану'].dt.day != 1
+    if non_first_days.any():
+        not_first_days = df.loc[df['Місяць плану'].dt.day != 1, 'Місяць плану'].dt.strftime('%Y-%m-%d').tolist()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f'The date {not_first_days} incorrect.It needs to be first day of month.'
+        )
 
     plans = []
+
+    if df['Сума'].isna().any():
+        na_rows = df.index[df['Сума'].isna()].tolist()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid sum value found in rows {na_rows}. Sum cannot be None."
+        )
+
     for index, row in df.iterrows():
-        if pd.isna(row['Сума']):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'The sum {row["Сума"]} incorrect.It can not be None.'
-            )
+        inst = Plan(
+            period=row['Місяць плану'],
+            sum=float(row['Сума']),
+            category_id=row['category_id']
+        )
+        plans.append(inst)
 
-        day_of_plan = pd.to_datetime(row['Місяць плану']).date()
-        if day_of_plan.day != 1:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'The date {day_of_plan} incorrect.It needs to be first day of month.'
-            )
-        result = [None for i in db_plan if
-                  row['Назва категорії плану'].lower() == i.category.name and day_of_plan == i.period]
-        if None in result:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f'We had same plans for {day_of_plan}(s) '
-            )
-        category_id = [i for i in dictionary_ if i.name == row['Назва категорії плану'].lower()]
-        if category_id:
-            inst = Plan(
-                period=day_of_plan,
-                sum=float(row['Сума']),
-                category_id=category_id[0].id
-            )
-            plans.append(inst)
-
-    if len(plans) > 0:
+    if plans:
         session.add_all(plans)
         session.commit()
 

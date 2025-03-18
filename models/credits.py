@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, Date, String,Float,ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, Date, Float, ForeignKey
 
 from datetime import datetime
 from .base import Base
@@ -15,8 +14,6 @@ class Credit(Base):
     actual_return_date = Column(Date, nullable=True)
     body = Column(Float)
     percent = Column(Float)
-
-    # user = relationship("User", back_populates="credits")
 
     def __repr__(self):
         return f"Credit(id={self.id}, user_id={self.user_id}, body={self.body})"
