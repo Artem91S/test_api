@@ -8,7 +8,7 @@ from .base import Base
 class Payment(Base):
     __tablename__ = "payments"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     sum = Column(Float, nullable=False)
     payment_date = Column(Date, default=datetime.now().date())
     credit_id = Column(Integer, ForeignKey("credits.id"), nullable=False)

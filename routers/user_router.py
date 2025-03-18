@@ -1,13 +1,39 @@
 from fastapi import APIRouter, HTTPException
 from data_base.local_db import get_session
+from typing import List, Union
+from pydantic import BaseModel
 from data_base.user import User
 from data_base.credits import Credit
 from data_base.dictionary import Dictionary
 from data_base.payment import Payment
 from sqlalchemy import func
-from datetime import datetime
+from datetime import datetime, date
 
 router = APIRouter()
+
+
+class ClosedCredit(BaseModel):
+    issued_date: date
+    is_closed: bool
+    body: float
+    return_date: date
+    percent: float
+    total_payments: float
+
+
+class OpenCredit(BaseModel):
+    issued_date: date
+    is_closed: bool
+    body: float
+    return_date: date
+    percent: float
+    overdue_days: int
+    body_payments: float
+    percent_payments: float
+
+
+class UserCreditsResponse(BaseModel):
+    credit: Union[List[Union[ClosedCredit, OpenCredit]], str]
 
 
 @router.get("/user_credits/{user_id}")
