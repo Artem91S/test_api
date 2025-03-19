@@ -19,5 +19,8 @@ session_maker = sessionmaker(bind=engine)
 
 def get_session():
     with session_maker() as session:
-        yield session
-        print('Is works?')
+        try:
+            yield session
+        finally:
+            session.close()
+
