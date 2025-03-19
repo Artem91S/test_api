@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException,Depends
 from sqlalchemy import func, case
 from datetime import datetime
-
+from sqlalchemy.orm import Session
 from schemas.schema_credits import UserCreditsResponse
 from models.user import User
 from models.credits import Credit
@@ -9,13 +9,11 @@ from models.dictionary import Dictionary
 from models.payment import Payment
 from db.local_db import get_session
 
-
 router = APIRouter()
 
 
-@router.get("/user_credits/{user_id}",response_model=UserCreditsResponse)
-def get_user_credits(user_id: int):
-    session = next(get_session())
+@router.get("/user_credits/{user_id}", response_model=UserCreditsResponse)
+def get_user_credits(user_id: int, session: Session = Depends(get_session)):
     credits_ = session.query(Credit).filter_by(user_id=user_id).all()
     result = []
     if credits_ is None:
@@ -52,7 +50,7 @@ def get_user_credits(user_id: int):
                 'return_date': credit.return_date,
                 'overdue_days': overdue_days,
                 'body_payments': round(body_payments, 2),
-                'percent_payments': round(percent_payments,2)
+                'percent_payments': round(percent_payments, 2)
             })
 
         result.append(credit_data)

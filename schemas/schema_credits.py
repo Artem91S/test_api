@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from datetime import date
 from typing import List, Union
 
-
 class ClosedCredit(BaseModel):
     issued_date: date
     is_closed: bool

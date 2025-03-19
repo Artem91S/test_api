@@ -1,9 +1,10 @@
 import pandas as pd
 from typing import List
-from fastapi import APIRouter, UploadFile, File, HTTPException, status
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends
 from io import BytesIO
 from sqlalchemy import tuple_
 from schemas.schema_plan import PlanInsertResponse
+from sqlalchemy.orm import Session
 
 from db.local_db import get_session
 from models.plan import Plan
@@ -19,7 +20,7 @@ def return_id_in_colum(col: str, dic: List[Dictionary]) -> int:
 
 
 @router.post("/plans_insert", response_model=PlanInsertResponse)
-async def plans_insert(file: UploadFile = File(...)):
+async def plans_insert(file: UploadFile = File(...), session: Session = Depends(get_session)):
     if not file.filename.endswith(('.xlsx', '.xls')):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -27,7 +28,6 @@ async def plans_insert(file: UploadFile = File(...)):
         )
 
     content = await file.read()
-    session = next(get_session())
 
     df = pd.read_excel(BytesIO(content))
     dictionary_ = session.query(Dictionary).all()

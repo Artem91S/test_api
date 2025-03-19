@@ -5,10 +5,10 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from data_base.base import Base
-from data_base.local_db import DB_URL
+from models.base import Base
+from db.local_db import DB_URL
 
-from data_base import credits, dictionary,payment,plan,user
+from models import credits, dictionary,payment,plan,user
 
 
 # this is the Alembic Config object, which provides
